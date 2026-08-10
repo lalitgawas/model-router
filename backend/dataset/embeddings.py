@@ -89,7 +89,7 @@ def build_index():
     return True
 
 
-def find_best_model_for_prompt(user_prompt: str, top_k: int = 5, performance_tolerance: float = 0.05):
+def find_best_model_for_prompt(user_prompt: str, top_k: int = 5, performance_tolerance: float = 0.1):
 
     index = None
     metadata = None
@@ -109,10 +109,12 @@ def find_best_model_for_prompt(user_prompt: str, top_k: int = 5, performance_tol
     for idx in indices[0]:
         matched_item = metadata[idx]
         m_name = matched_item["model_name"]
-        
+        prompt_name=matched_item["prompt"]
+
         if m_name not in model_stats:
-            model_stats[m_name] = {"total_perf": 0, "total_cost": 0, "count": 0}
-            
+            model_stats[m_name] = {"total_perf": 0, "total_cost": 0, "count": 0, "prompts":[]}
+
+        model_stats[m_name]["prompts"].append(prompt_name)
         model_stats[m_name]["total_perf"] += matched_item["performance"]
         model_stats[m_name]["total_cost"] += matched_item["cost"]
         model_stats[m_name]["count"] += 1
@@ -121,30 +123,26 @@ def find_best_model_for_prompt(user_prompt: str, top_k: int = 5, performance_tol
     for m_name, stats in model_stats.items():
         avg_perf = stats["total_perf"] / stats["count"]
         avg_cost = stats["total_cost"] / stats["count"]
-        aggregated_models.append({"model_name": m_name, "performance": avg_perf, "cost": avg_cost})
+        aggregated_models.append({"model_name": m_name, "performance": avg_perf, "cost": avg_cost, "prompts":stats["prompts"]})
 
-    print("aggregated model")
-    print(aggregated_models)
 
     if not aggregated_models:
         return None
-
 
     max_perf = max(m["performance"] for m in aggregated_models)
     threshold = max_perf - performance_tolerance
     candidates = [m for m in aggregated_models if m["performance"] >= threshold]
     candidates.sort(key=lambda x: x["cost"])
-    
-    return candidates[0]
+
+    return candidates
 
 
 if __name__ == "__main__":
     # If Node.js calls this script with arguments
     if len(sys.argv) > 2 and sys.argv[1] == "find_best_model_for_prompt":
         prompt_arg = sys.argv[2]
-        best_model = find_best_model_for_prompt(prompt_arg)
-        print("best model")
-        print(json.dumps(best_model))
+        best_models = find_best_model_for_prompt(prompt_arg)
+        print(json.dumps(best_models))
     else:
         # If you just run `python embeddings.py` in the terminal, it builds chunks
         build_index()
