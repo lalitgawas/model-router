@@ -18,10 +18,13 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@types/cors": "^2.8.19",
     "@types/dotenv": "^6.1.1",
     "@types/express": "^5.0.6",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "mongoose": "^9.9.2",
     "openai": "^7.4.0"
   }
 }

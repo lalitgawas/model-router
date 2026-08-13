@@ -88,8 +88,8 @@ def build_index():
     print("The dataset is ready to use.")
     return True
 
-
-def find_best_model_for_prompt(user_prompt: str, top_k: int = 5, performance_tolerance: float = 0.1):
+# for optimized model only
+def find_best_model_for_prompt(user_prompt: str, top_k: int = 20, performance_tolerance: float = 0.02):
 
     index = None
     metadata = None
@@ -129,12 +129,67 @@ def find_best_model_for_prompt(user_prompt: str, top_k: int = 5, performance_tol
     if not aggregated_models:
         return None
 
+    # Filter: only keep models within tolerance of the best performer
     max_perf = max(m["performance"] for m in aggregated_models)
     threshold = max_perf - performance_tolerance
     candidates = [m for m in aggregated_models if m["performance"] >= threshold]
-    candidates.sort(key=lambda x: x["cost"])
 
-    return candidates
+    # Rank by combined score: prioritize performance, use cost as tiebreaker
+    # Normalize cost so cheaper = higher score
+    max_cost = max(c["cost"] for c in candidates) if candidates else 1
+    for c in candidates:
+        cost_efficiency = 1 - (c["cost"] / max_cost) if max_cost > 0 else 0
+        c["score"] = (c["performance"] * 0.7) + (cost_efficiency * 0.3)
+
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+
+    return candidates[0]
+
+
+# always the best model only
+# def find_best_model_for_prompt(user_prompt: str, top_k: int = 20, performance_tolerance: float = 0.0):
+
+#     index = None
+#     metadata = None
+#     if os.path.exists(PROMPT_INDEX_PATH) and os.path.exists(METADATA_PATH):
+#         index = faiss.read_index(PROMPT_INDEX_PATH)
+#         with open(METADATA_PATH, "rb") as f:
+#             metadata = pickle.load(f)
+
+#     if index is None or metadata is None:
+#         print(user_prompt)
+#         raise ValueError("FAISS index or metadata not found. Please run the script to build them first.")
+        
+#     query_vector = model.encode([user_prompt], normalize_embeddings=True).astype("float32")
+#     distances, indices = index.search(query_vector, top_k)
+
+#     model_stats = {}
+#     for idx in indices[0]:
+#         matched_item = metadata[idx]
+#         m_name = matched_item["model_name"]
+#         prompt_name=matched_item["prompt"]
+
+#         if m_name not in model_stats:
+#             model_stats[m_name] = {"total_perf": 0, "total_cost": 0, "count": 0, "prompts":[]}
+
+#         model_stats[m_name]["prompts"].append(prompt_name)
+#         model_stats[m_name]["total_perf"] += matched_item["performance"]
+#         model_stats[m_name]["total_cost"] += matched_item["cost"]
+#         model_stats[m_name]["count"] += 1
+
+#     aggregated_models = []
+#     for m_name, stats in model_stats.items():
+#         avg_perf = stats["total_perf"] / stats["count"]
+#         avg_cost = stats["total_cost"] / stats["count"]
+#         aggregated_models.append({"model_name": m_name, "performance": avg_perf, "cost": avg_cost, "prompts":stats["prompts"]})
+
+
+#     if not aggregated_models:
+#         return None
+    
+#     aggregated_models.sort(key=lambda x: x["performance"], reverse=True)
+
+#     return aggregated_models[0]
 
 
 if __name__ == "__main__":
@@ -142,7 +197,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 2 and sys.argv[1] == "find_best_model_for_prompt":
         prompt_arg = sys.argv[2]
         best_models = find_best_model_for_prompt(prompt_arg)
-        print(json.dumps(best_models))
+        print(json.dumps(best_models["model_name"]))   
+        print(json.dumps(best_models["cost"]))   
+        print(json.dumps(best_models["performance"]))  
     else:
         # If you just run `python embeddings.py` in the terminal, it builds chunks
         build_index()
