@@ -142,8 +142,8 @@ def find_best_model_for_prompt(user_prompt: str, top_k: int = 20, performance_to
         c["score"] = (c["performance"] * 0.7) + (cost_efficiency * 0.3)
 
     candidates.sort(key=lambda x: x["score"], reverse=True)
-
-    return candidates[0]
+  
+    return candidates
 
 
 # always the best model only
@@ -196,10 +196,8 @@ if __name__ == "__main__":
     # If Node.js calls this script with arguments
     if len(sys.argv) > 2 and sys.argv[1] == "find_best_model_for_prompt":
         prompt_arg = sys.argv[2]
-        best_models = find_best_model_for_prompt(prompt_arg)
-        print(json.dumps(best_models["model_name"]))   
-        print(json.dumps(best_models["cost"]))   
-        print(json.dumps(best_models["performance"]))  
+        all_models = find_best_model_for_prompt(prompt_arg) 
+        print(json.dumps(all_models))
     else:
         # If you just run `python embeddings.py` in the terminal, it builds chunks
         build_index()

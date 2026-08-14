@@ -1,26 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react';
-
-/* ============================================
-   TYPES
-   ============================================ */
-
-interface Message {
-  _id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  model?: string;
-  actualModel?: string;
-  isFallback?: boolean;
-  timestamp: Date;
-}
-
-interface ChatSession {
-  _id: string;
-  title: string;
-  messages: Message[];
-  createdAt: Date;
-}
-
+import type { Message, ChatSession } from '../types/chat';
+import { Sidebar } from './Sidebar';
+import { EmptyState } from './EmptyState';
 /* ============================================
    DECORATIVE FLOATING SHAPES
    ============================================ */
@@ -55,101 +36,7 @@ function TypingIndicator() {
   );
 }
 
-/* ============================================
-   SIDEBAR COMPONENT
-   ============================================ */
 
-interface SidebarProps {
-  sessions: ChatSession[];
-  activeSessionId: string | null;
-  onNewChat: () => void;
-  onSelectSession: (id: string) => void;
-}
-
-function Sidebar({ sessions, activeSessionId, onNewChat, onSelectSession }: SidebarProps) {
-  return (
-    <aside className="sidebar">
-      {/* Logo Pill */}
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-pill">
-          <span className="logo-icon">//</span>
-          <span className="logo-text">Model Router</span>
-        </div>
-      </div>
-
-      {/* New Chat Button */}
-      <button id="new-chat-btn" className="new-chat-btn" onClick={onNewChat}>
-        <span className="plus-icon">+</span>
-        New Chat
-      </button>
-
-      {/* History */}
-      <div className="sidebar-section-title">Recent Chats</div>
-      <div className="chat-history">
-        {sessions.map((session) => (
-          <div
-            key={session._id}
-            id={`chat-session-${session._id}`}
-            className={`chat-history-item ${session._id === activeSessionId ? 'active' : ''}`}
-            onClick={() => onSelectSession(session._id)}
-          >
-            {session.title}
-          </div>
-        ))}
-      </div>
-
-      {/* Footer */}
-      <div className="sidebar-footer">
-        <div className="sidebar-footer-item">
-          Settings
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-/* ============================================
-   EMPTY STATE
-   ============================================ */
-
-interface EmptyStateProps {
-  onSuggestionClick: (text: string) => void;
-}
-
-const suggestions = [
-  { text: 'Explain quantum computing', chipColor: 'chip-yellow' },
-  { text: 'Write a poem about the ocean', chipColor: 'chip-mint' },
-  { text: 'Debug my Python code', chipColor: 'chip-coral' },
-  { text: 'Analyse this dataset', chipColor: 'chip-teal' },
-];
-
-function EmptyState({ onSuggestionClick }: EmptyStateProps) {
-  return (
-    <div className="empty-state">
-
-      <h2>
-        I route <span className="highlight">smart</span> prompts to prod.
-      </h2>
-      <p>
-        Full-stack AI routing — real-time model selection, solid cost optimization,
-        and a dataset that learns. I take prompts past the "just use GPT-4" stage.
-      </p>
-      <div className="status-line">Routing automatically, saving you money.</div>
-      <div className="suggestion-chips">
-        {suggestions.map((s, i) => (
-          <button
-            key={i}
-            id={`suggestion-chip-${i}`}
-            className={`suggestion-chip ${s.chipColor}`}
-            onClick={() => onSuggestionClick(s.text)}
-          >
-            {s.text}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /* ============================================
    MESSAGE BUBBLE
@@ -216,6 +103,7 @@ export const Landing = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentModel, setCurrentModel] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<{ totalRouted: number, highEndRouted: number, percentage: number } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -243,7 +131,19 @@ export const Landing = () => {
         console.error("Error fetching sessions", err);
       }
     };
+
+    const fetchMetrics = async () => {
+      try {
+        const res = await fetch('http://localhost:3000/api/v1/metrics');
+        const data = await res.json();
+        setMetrics(data);
+      } catch (err) {
+        console.error("Error fetching metrics", err);
+      }
+    };
+
     fetchSessions();
+    fetchMetrics();
   }, []);
 
   // Auto-scroll to bottom
@@ -363,7 +263,7 @@ export const Landing = () => {
 
         <div className="messages-area">
           {messages.length === 0 && !isLoading ? (
-            <EmptyState onSuggestionClick={(text) => handleSend(text)} />
+            <EmptyState onSuggestionClick={(text) => handleSend(text)} metrics={metrics} />
           ) : (
             <>
               {messages.map((msg) => (
